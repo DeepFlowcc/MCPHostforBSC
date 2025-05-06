@@ -340,6 +340,56 @@
             currentMessageElement = null;
         });
 
+        // Handle server shutdown
+        socket.on('server_shutdown', (data) => {
+            // Create a shutdown message element
+            const shutdownElement = document.createElement('div');
+            shutdownElement.className = 'message agent-message error-message';
+            shutdownElement.innerHTML = `<strong>🔌 Server Shutdown:</strong> ${data.message || 'The server is shutting down'}`;
+            
+            // Add to chat container
+            chatMessages.appendChild(shutdownElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Update status and disable input
+            statusDisplay.textContent = 'Server disconnected';
+            statusDisplay.style.color = '#d9534f';
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            
+            // Show reconnection message
+            setTimeout(() => {
+                const reconnectElement = document.createElement('div');
+                reconnectElement.className = 'message agent-message';
+                reconnectElement.innerHTML = 'Please refresh the page when the server is back online.';
+                chatMessages.appendChild(reconnectElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 1000);
+        });
+
+        // Handle disconnection
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            
+            // Update status and disable input
+            statusDisplay.textContent = 'Disconnected from server';
+            statusDisplay.style.color = '#d9534f';
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            
+            // Show reconnection message if not already shown
+            const hasReconnectMessage = Array.from(document.querySelectorAll('.message')).some(
+                element => element.textContent.includes('refresh the page')
+            );
+            if (!hasReconnectMessage) {
+                const reconnectElement = document.createElement('div');
+                reconnectElement.className = 'message agent-message';
+                reconnectElement.innerHTML = 'Please refresh the page to reconnect.';
+                chatMessages.appendChild(reconnectElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        });
+
         let currentMessageElement = null;
 
         socket.on('response', (data) => {
