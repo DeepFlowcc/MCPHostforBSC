@@ -37,6 +37,7 @@ export class MCPHost {
   private server: http.Server;
   private io: SocketIOServer;
   private port: number = 3000;
+  private shutdownInProgress: boolean = false;
 
   constructor(config?: MCPConfig) {
     this.config = config;
@@ -50,14 +51,50 @@ export class MCPHost {
     this.app.use(express.static(join(__dirname, '../public')));
     this.app.use(express.json());
     
-    process.on('SIGINT', () => {
-      this.abortController.abort();
-    });
+    // Handle process signals
+    this.setupSignalHandlers();
     
     // Setup routes and socket events
     this.setupRoutes();
     this.setupSocketEvents();
     this.setupAgentHooks();
+  }
+  
+  private setupSignalHandlers() {
+    // Handle SIGINT (Ctrl+C)
+    process.on('SIGINT', async () => {
+      if (this.shutdownInProgress) {
+        log.warn('Forced exit due to repeated interruption...');
+        process.exit(1); // Force exit if interrupted during shutdown
+      }
+      
+      log.info('SIGINT received, shutting down gracefully...');
+      this.shutdownInProgress = true;
+      this.abortController.abort();
+      
+      // Set a timeout to force exit if graceful shutdown takes too long
+      setTimeout(() => {
+        log.warn('Graceful shutdown timed out, forcing exit');
+        process.exit(1);
+      }, 5000); // 5 seconds timeout
+    });
+    
+    // Handle SIGTERM
+    process.on('SIGTERM', async () => {
+      log.info('SIGTERM received, shutting down gracefully...');
+      this.abortController.abort();
+    });
+    
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      log.error('Uncaught exception:', error);
+      this.abortController.abort();
+    });
+    
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      log.error('Unhandled rejection at:', promise, 'reason:', reason);
+    });
   }
   
   private setupRoutes() {
@@ -201,19 +238,28 @@ export class MCPHost {
   }
 
   async close() {
-    // Close MCP clients
-    for (const mcp of this.mcpClients) {
-      await mcp.close();
-    }
+    log.info('Shutting down MCP Host...');
     
-    // Close web server
-    if (this.server) {
-      await new Promise<void>((resolve) => {
-        this.server.close(() => resolve());
-      });
+    try {
+      // Notify all clients of shutdown
+      this.io.emit('server_shutdown', { message: 'Server is shutting down' });
+      
+      // Close MCP clients
+      for (const mcp of this.mcpClients) {
+        await mcp.close();
+      }
+      
+      // Close web server
+      if (this.server) {
+        await new Promise<void>((resolve) => {
+          this.server.close(() => resolve());
+        });
+      }
+      
+      log.info('Closed all connections.');
+    } catch (error) {
+      log.error('Error during shutdown:', error);
     }
-    
-    log.info('Closed all connections.');
   }
 
   async run() {

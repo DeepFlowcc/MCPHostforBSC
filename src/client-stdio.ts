@@ -67,7 +67,45 @@ export class MCPClient extends EventEmitter {
   }
 
   async close() {
-    log.info('Closing transport...');
-    await this.transport.close();
+    try {
+      log.info('Closing stdio transport...');
+      
+      // Set a timeout to force close if it takes too long
+      const forceCloseTimeout = setTimeout(() => {
+        log.warn('Forced closing of stdio transport due to timeout');
+        // Force kill the child process if it exists
+        this.forceKillChildProcess();
+      }, 3000); // 3 seconds timeout
+      
+      await this.transport.close();
+      
+      // Clear the timeout if normal close succeeded
+      clearTimeout(forceCloseTimeout);
+      
+      log.success('Successfully closed stdio transport');
+    } catch (error) {
+      log.error('Error closing stdio transport:', error);
+      
+      // Attempt to force kill the child process as a last resort
+      this.forceKillChildProcess();
+    }
+  }
+
+  /**
+   * Attempts to force kill the child process if it exists
+   * Uses any to bypass TypeScript checks since the property is not in the type definitions
+   */
+  private forceKillChildProcess() {
+    try {
+      // Use any type to access potential internal properties
+      const transportAny = this.transport as any;
+      
+      if (transportAny.childProcess && typeof transportAny.childProcess.kill === 'function') {
+        transportAny.childProcess.kill('SIGKILL');
+        log.warn('Forced kill of child process');
+      }
+    } catch (e) {
+      log.error('Error force killing child process:', e);
+    }
   }
 } 
