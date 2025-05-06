@@ -239,16 +239,88 @@ export class TodoAgent {
     additionalProperties: boolean;
   } {
     const properties: Record<string, any> = zodSchema.properties || {};
-    const required: string[] = zodSchema.required || [];
+    // Start with the original required array
+    const required: string[] = [...(zodSchema.required || [])];
     const additionalProperties: boolean =
       zodSchema.additionalProperties !== undefined
         ? zodSchema.additionalProperties
         : false;
+        
+    // Remove default values from properties to avoid OpenAI API errors
+    // and at the same time, collect all property keys to ensure
+    // they are included in the required array
+    const allPropertyKeys = new Set(required);
+    
+    for (const key in properties) {
+      // Add all property keys to the set (this will collect both required and optional ones)
+      allPropertyKeys.add(key);
+      
+      // Remove default values if present
+      if (properties[key] && 'default' in properties[key]) {
+        delete properties[key].default;
+      }
+      
+      // Fix array properties without 'items'
+      if (properties[key] && properties[key].type === 'array' && !properties[key].items) {
+        // For 'abi' field which is known to be an array of objects
+        if (key === 'abi') {
+          properties[key].items = {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              name: { type: 'string' },
+              type: { type: 'string' },
+              inputs: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string' }
+                  },
+                  required: ['name', 'type']
+                }
+              },
+              outputs: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string' }
+                  },
+                  required: ['name', 'type']
+                }
+              },
+              stateMutability: { type: 'string' }
+            },
+            required: ['name', 'type', 'inputs', 'outputs', 'stateMutability']
+          };
+        }
+        // For 'args' field which is an array
+        else if (key === 'args') {
+          properties[key].items = {
+            type: 'string'
+          };
+        }
+        // For any other array types
+        else {
+          properties[key].items = {
+            type: 'string'
+          };
+        }
+      }
+    }
+    
+    // For OpenAI, make all properties required to avoid validation issues
+    const allPropertiesRequired: string[] = Array.from(allPropertyKeys);
 
     return {
       type: 'object',
       properties,
-      required,
+      required: allPropertiesRequired,
       additionalProperties,
     };
   }
@@ -258,6 +330,9 @@ export class TodoAgent {
     description?: string;
     inputSchema: any;
   }): ChatCompletionTool {
+    // Create a deep copy of the input schema to avoid modifying the original
+    const inputSchema = JSON.parse(JSON.stringify(tool.inputSchema));
+    
     return {
       type: 'function',
       function: {
@@ -265,7 +340,7 @@ export class TodoAgent {
         name: tool.name,
         description: tool.description,
         parameters: {
-          ...TodoAgent.zodSchemaToParametersSchema(tool.inputSchema),
+          ...TodoAgent.zodSchemaToParametersSchema(inputSchema),
         },
       },
     };
@@ -276,13 +351,16 @@ export class TodoAgent {
     description?: string;
     inputSchema: any;
   }): FunctionTool {
+    // Create a deep copy of the input schema to avoid modifying the original
+    const inputSchema = JSON.parse(JSON.stringify(tool.inputSchema));
+    
     return {
       type: 'function',
       strict: true,
       name: tool.name,
       description: tool.description,
       parameters: {
-        ...TodoAgent.zodSchemaToParametersSchema(tool.inputSchema),
+        ...TodoAgent.zodSchemaToParametersSchema(inputSchema),
       },
     };
   }

@@ -11,7 +11,7 @@ const config: MCPConfig = {
   servers: {
     'bsc-mcp': {
       type: 'stdio',
-      scriptPath: "../bsc-dist/index.js",
+      scriptPath: "../bnb-dist/index.cjs",
     },
   },
 };
