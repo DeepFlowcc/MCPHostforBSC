@@ -87,6 +87,14 @@ export class MCPHost {
         result: result
       });
     };
+    
+    // Set up error handling hook
+    this.agent.onError = (errorMessage: string) => {
+      // Emit error to all connected clients
+      this.io.emit('agent_error', {
+        message: errorMessage
+      });
+    };
   }
   
   private setupSocketEvents() {
