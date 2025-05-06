@@ -24,24 +24,46 @@
   "dependencies": {
     "@azure/identity": "^4.9.1",
     "@modelcontextprotocol/sdk": "^1.10.2",
-    "@types/express": "^5.0.1",
-    "@types/socket.io": "^3.0.1",
     "chalk": "^5.4.1",
+    "cors": "^2.8.5",
     "debug": "^4.4.0",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "openai": "^4.96.0",
     "socket.io": "^4.8.1",
     "type": "^2.7.3",
+    "viem": "^2.27.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.8.0",
+    "@commitlint/config-conventional": "^19.8.0",
+    "@ianvs/prettier-plugin-sort-imports": "4.1.1",
+    "@types/cors": "^2.8.17",
     "@types/debug": "^4.1.12",
+    "@types/express": "^5.0.1",
     "@types/node": "^20.11.24",
+    "@types/socket.io": "^3.0.1",
+    "husky": "^9.1.7",
+    "prettier": "3.2.4",
     "tsx": "^4.19.3",
     "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ],
+    "rules": {
+      "subject-case": [
+        2,
+        "always",
+        [
+          "sentence-case"
+        ]
+      ]
+    }
   }
 }
