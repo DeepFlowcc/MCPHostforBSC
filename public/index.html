@@ -145,6 +145,11 @@
             border-radius: 3px;
             font-family: monospace;
         }
+        .error-message {
+            background-color: #ffe6e6;
+            border-left: 3px solid #d9534f;
+            color: #d9534f;
+        }
     </style>
 </head>
 <body>
@@ -313,6 +318,26 @@
                 
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
+        });
+
+        // Handle error events
+        socket.on('agent_error', (data) => {
+            // Create an error message element
+            const errorElement = document.createElement('div');
+            errorElement.className = 'message agent-message error-message';
+            errorElement.innerHTML = `<strong>⚠️ Error:</strong> ${data.message}`;
+            
+            // Add to chat container
+            chatMessages.appendChild(errorElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Update status
+            statusDisplay.textContent = 'Error occurred. Ready for next query.';
+            statusDisplay.style.color = '#d9534f';
+            
+            // Reset message elements
+            currentToolMessageElement = null;
+            currentMessageElement = null;
         });
 
         let currentMessageElement = null;
